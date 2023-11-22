@@ -34,6 +34,60 @@ type BigAdd_<N1 extends number[], N2 extends number[]> =
 
 export type BigAdd<N1 extends number, N2 extends number> = Recompose<BigAdd_<Decompose<N1>, Decompose<N2>>>
 
+
+type Negate<N extends number> =
+    `${N}` extends `-${infer NN extends number}` ? NN :
+    `-${N}` extends `${infer NN extends number}` ? NN :
+    never;
+
+type StrLen<T extends string, Acc extends null[] = []> =
+    T extends `${string}${infer Rest}` ?
+        StrLen<Rest, [...Acc, null]> :
+        Acc
+
+type UnaryToObject<Input extends any[], Acc extends { [K in number]: null } = {}> =
+    Input extends [any, ...infer Rest extends null[]] ?
+        UnaryToObject<Rest, Acc & { [K in Rest["length"]]: null }> :
+        Acc;
+
+type IsLongerEq<A extends string, B extends string> =
+    UnaryToObject<StrLen<A>> extends UnaryToObject<StrLen<B>> ? true : false;
+
+type AbsSmallNumIsGreaterEq<A extends number, B extends number> =
+    UnaryToObject<FromInt<A>> extends UnaryToObject<FromInt<B>> ? true : false;
+
+type AbsNumIsGreaterEq_<A extends number[], B extends number[]> =
+    [A, B] extends [
+        [infer AHead extends number, ...infer ARest extends number[]],
+        [infer BHead extends number, ...infer BRest extends number[]],
+    ] ?
+        [AHead, BHead] extends [BHead, AHead] ?
+            AbsNumIsGreaterEq_<ARest, BRest> :
+        AbsSmallNumIsGreaterEq<AHead, BHead> extends true ? true :
+        false :
+    true;
+
+type AbsNumIsGreaterEq<A extends number, B extends number> =
+    IsLongerEq<`${A}`, `${B}`> extends false ? false :
+    IsLongerEq<`${B}`, `${A}`> extends false ? true :
+    AbsNumIsGreaterEq_<Decompose_<`${A}`>, Decompose_<`${B}`>>;
+
+type IsNegative<A extends number> = `${A}` extends `-${number}` ? true : false;
+
+export type NumIsGreaterEq<A extends number, B extends number> =
+    IsNegative<A> extends true ?
+        IsNegative<B> extends true ? AbsNumIsGreaterEq<Negate<B>, Negate<A>> :
+        false :
+    IsNegative<B> extends true ? true :
+    AbsNumIsGreaterEq<A, B>;
+
+export type NumIsGreater<A extends number, B extends number> =
+    [A, B] extends [B, A] ? false :
+    NumIsGreaterEq<A, B>;
+
+export type NumIsLessEq<A extends number, B extends number> = NumIsGreater<B, A>
+export type NumIsLess<A extends number, B extends number> = NumIsGreaterEq<B, A>
+
 type MultC<D1 extends number, D2 extends number> = Decompose<IsNumber<Mult<D1, D2>>>
 type BigMult1D_<D1 extends number, N2 extends number[]> =
     N2 extends [infer D2 extends number, ...(infer R2 extends number[])] ?
