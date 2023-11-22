@@ -191,17 +191,38 @@ type Parse<Tokens extends Tok[], SR extends ParseTree[] = []> =
     // Start by doing fairly innocuous reductions
     SR extends [
             { kind: "semicolon" },
+            { kind: "expression" },
+            { kind: "assignment-word" },
+            { kind: "token" },
+            { kind: "declaration-word" },
+            ...any[]
+        ] ?
+        SR extends [
+            { kind: "semicolon" },
             { kind: "expression", value: infer Exp extends ParseTree },
             { kind: "assignment-word" },
             { kind: "token", value: infer Name extends string },
             { kind: "declaration-word" },
-            ...infer RestSR extends ParseTree[],
+            ...infer Rest extends ParseTree[]
         ] ? Parse<
             Tokens,
-            [{ kind: "statement", value: { kind: "declaration", name: Name, value: Exp } }, ...RestSR]
+            [{ kind: "statement", value: { kind: "declaration", name: Name, value: Exp } }, ...Rest]
         > :
-    // Then, with fairly high priority manage the binop shift/reduce (so we can handle priority)
+        never :
+    // // Then, with fairly high priority manage the binop shift/reduce (so we can handle priority)
     [Tokens, SR] extends [
+            [
+                [string, "binop"],
+                ...any[]
+            ],
+            [
+                { kind: "expression" },
+                { kind: "binop-word" },
+                { kind: "expression" },
+                ...any[]
+            ]
+        ] ?
+        [Tokens, SR] extends [
             [
                 [infer New extends keyof BinOps, "binop"],
                 ...infer RestTok extends Tok[],
@@ -215,7 +236,14 @@ type Parse<Tokens extends Tok[], SR extends ParseTree[] = []> =
         ShouldShiftNewOp<Existing, New> extends true ?
             Parse<RestTok, [{ kind: "binop-word", value: New }, ...SR]> :
             Parse<Tokens, [{ kind: "expression", value: { kind: "binop", op: Existing, left: Left, right: Right } }, ...RestSR]> :
+        never :
     SR extends [
+            { kind: "expression" },
+            { kind: "binop-word" },
+            { kind: "expression" },
+            ...any[]
+        ] ?
+        SR extends [
             { kind: "expression", value: infer Right extends ParseTree },
             { kind: "binop-word", value: infer Existing extends keyof BinOps },
             { kind: "expression", value: infer Left extends ParseTree },
@@ -225,8 +253,15 @@ type Parse<Tokens extends Tok[], SR extends ParseTree[] = []> =
             Tokens,
             [{ kind: "expression", value: { kind: "binop", op: Existing, left: Left, right: Right } }, ...RestSR]
         > :
+        never :
     // Afterward, start reducing into statements
     SR extends [
+            { kind: "expression" },
+            { kind: "comma" },
+            { kind: "expression" },
+            ...any[],
+        ] ?
+        SR extends [
             { kind: "expression", value: infer Exp extends ParseTree },
             { kind: "comma" },
             { kind: "expression", value: { kind: "comma-series", values: infer Exps extends ParseTree[] } },
@@ -235,7 +270,7 @@ type Parse<Tokens extends Tok[], SR extends ParseTree[] = []> =
             Tokens,
             [{ kind: "expression", value: { kind: "comma-series", values: [...Exps, Exp] } }, ...RestSR]
         > :
-    SR extends [
+        SR extends [
             { kind: "expression", value: infer Exp2 extends ParseTree },
             { kind: "comma" },
             { kind: "expression", value: infer Exp1 extends ParseTree },
@@ -244,7 +279,14 @@ type Parse<Tokens extends Tok[], SR extends ParseTree[] = []> =
             Tokens,
             [{ kind: "expression", value: { kind: "comma-series", values: [Exp1, Exp2] } }, ...RestSR]
         > :
+        never :
     SR extends [
+            { kind: "semicolon" },
+            { kind: "expression" },
+            { kind: "return-word" },
+            ...any[],
+        ] ?
+        SR extends [
             { kind: "semicolon" },
             { kind: "expression", value: infer Exp extends ParseTree },
             { kind: "return-word" },
@@ -254,7 +296,13 @@ type Parse<Tokens extends Tok[], SR extends ParseTree[] = []> =
             Tokens,
             [{ kind: "statement", value: { kind: "return", value: Exp } }, ...RestSR]
         > :
+        never :
     SR extends [
+            { kind: "statement" },
+            { kind: "statement-list" },
+            ...any[]
+        ] ?
+        SR extends [
             { kind: "statement", value: infer Exp extends ParseTree },
             { kind: "statement-list", values: infer Exps extends ParseTree[] },
             ...infer RestSR extends ParseTree[]
@@ -262,7 +310,14 @@ type Parse<Tokens extends Tok[], SR extends ParseTree[] = []> =
             Tokens,
             [{ kind: "statement-list", values: [...Exps, Exp]}, ...RestSR]
         > :
+        never :
     SR extends [
+            { kind: "close-brace" },
+            { kind: "statement-list" },
+            { kind: "open-brace" },
+            ...any[]
+        ] ?
+        SR extends [
             { kind: "close-brace" },
             { kind: "statement-list", values: infer Exps extends ParseTree[] },
             { kind: "open-brace" },
@@ -271,7 +326,13 @@ type Parse<Tokens extends Tok[], SR extends ParseTree[] = []> =
             Tokens,
             [{ kind: "statement", value: { kind: "block", values: Exps } }, ...RestSR]
         > :
+        never :
     SR extends [
+            { kind: "close-brace" },
+            { kind: "open-brace" },
+            ...any[],
+        ] ?
+        SR extends [
             { kind: "close-brace" },
             { kind: "open-brace" },
             ...infer RestSR extends ParseTree[]
@@ -279,7 +340,13 @@ type Parse<Tokens extends Tok[], SR extends ParseTree[] = []> =
             Tokens,
             [{ kind: "statement", value: { kind: "block", values: [] } }, ...RestSR]
         > :
+        never :
     SR extends [
+            { kind: "semicolon" },
+            { kind: "expression" },
+            ...any[],
+        ] ?
+        SR extends [
             { kind: "semicolon" },
             { kind: "expression", value: infer Exp extends ParseTree },
             ...infer RestSR extends ParseTree[],
@@ -288,7 +355,15 @@ type Parse<Tokens extends Tok[], SR extends ParseTree[] = []> =
             Tokens,
             [{ kind: "statement", value: Exp }, ...RestSR]
         > :
+        never :
     SR extends [
+            { kind: "arrow" },
+            { kind: "close-paren" },
+            { kind: "expression" },
+            { kind: "open-paren" },
+            ...any[]
+        ] ?
+        SR extends [
             { kind: "arrow" },
             { kind: "close-paren" },
             { kind: "expression", value: { kind: "comma-series", values: infer Args extends { kind: "token", value: string }[] } },
@@ -299,7 +374,7 @@ type Parse<Tokens extends Tok[], SR extends ParseTree[] = []> =
             Tokens,
             [{ kind: "fn-header", args: Args }, ...RestSR]
         > :
-    SR extends [
+        SR extends [
             { kind: "arrow" },
             { kind: "close-paren" },
             { kind: "expression", value: infer Arg extends { kind: "token", value: string } },
@@ -310,7 +385,15 @@ type Parse<Tokens extends Tok[], SR extends ParseTree[] = []> =
             Tokens,
             [{ kind: "fn-header", args: [Arg] }, ...RestSR]
         > :
+        never :
     SR extends [
+            { kind: "close-paren" },
+            { kind: "expression" },
+            { kind: "open-paren" },
+            { kind: "conditional-word" },
+            ...any[]
+        ] ?
+        SR extends [
             { kind: "close-paren" },
             { kind: "expression", value: infer Arg extends ParseTree },
             { kind: "open-paren" },
@@ -321,7 +404,13 @@ type Parse<Tokens extends Tok[], SR extends ParseTree[] = []> =
             Tokens,
             [{ kind: "conditional-header", condition: Arg}, ...RestSR]
         > :
+        never :
     SR extends [
+            { kind: "statement-list" },
+            { kind: "fn-header" },
+            ...any[]
+        ] ?
+        SR extends [
             { kind: "statement-list", values: [infer Body extends ParseTree] },
             { kind: "fn-header", args: infer Args extends ParseTree[] },
             ...infer RestSR extends ParseTree[],
@@ -329,7 +418,15 @@ type Parse<Tokens extends Tok[], SR extends ParseTree[] = []> =
             Tokens,
             [{ kind: "expression", value: { kind: "arrow-fn", args: Args, body: Body } }, ...RestSR]
         > :
+        never :
     SR extends [
+            { kind: "close-paren" },
+            { kind: "expression" },
+            { kind: "open-paren" },
+            { kind: "expression" },
+            ...any[]
+        ] ?
+        SR extends [
             { kind: "close-paren" },
             { kind: "expression", value: { kind: "comma-series", values: infer Args extends ParseTree[] } },
             { kind: "open-paren" },
@@ -339,33 +436,7 @@ type Parse<Tokens extends Tok[], SR extends ParseTree[] = []> =
             Tokens,
             [{ kind: "expression", value: { kind: "call", fn: Fn, args: Args }}, ...RestSR]
         > :
-    [Tokens, SR] extends [
-            [
-                // Negative lookahead against `=`
-                // We're trying to avoid over-optimizing if ... else ... chains
-                [string, Exclude<LexTokenValues, "antecedent">],
-                ...any[]
-            ] | [],
-            [
-                { kind: "statement-list", values: [infer Body extends ParseTree] },
-                { kind: "conditional-header", condition: infer Condition extends ParseTree },
-                ...infer RestSR extends ParseTree[],
-            ]
-        ] ? Parse<
-            Tokens,
-            [{ kind: "statement", value: { kind: "conditional", condition: Condition, body: Body } }, ...RestSR]
-        > :
-    SR extends [
-            { kind: "statement-list", values: [infer FalseCase extends ParseTree] },
-            { kind: "antecedent-word" },
-            { kind: "statement-list", values: [infer TrueCase extends ParseTree] },
-            { kind: "conditional-header", condition: infer Condition extends ParseTree },
-            ...infer RestSR extends ParseTree[],
-        ] ? Parse<
-            Tokens,
-            [{ kind: "statement", value: { kind: "antecedent", condition: Condition, trueCase: TrueCase, falseCase: FalseCase }}, ...RestSR]
-        > :
-    SR extends [
+        SR extends [
             { kind: "close-paren" },
             { kind: "expression", value: infer Arg extends ParseTree },
             { kind: "open-paren" },
@@ -375,13 +446,59 @@ type Parse<Tokens extends Tok[], SR extends ParseTree[] = []> =
             Tokens,
             [{ kind: "expression", value: { kind: "call", fn: Fn, args: [Arg] }}, ...RestSR]
         > :
+        never :
+    [Tokens, SR] extends [
+            [
+                // Negative lookahead against `=`
+                // We're trying to avoid over-optimizing if ... else ... chains
+                [string, Exclude<LexTokenValues, "antecedent">],
+                ...any[]
+            ] | [],
+            [
+                { kind: "statement-list"},
+                { kind: "conditional-header" },
+                ...any[]
+            ]
+        ] ?
+        SR extends[
+            { kind: "statement-list", values: [infer Body extends ParseTree] },
+            { kind: "conditional-header", condition: infer Condition extends ParseTree },
+            ...infer RestSR extends ParseTree[],
+        ] ? Parse<
+            Tokens,
+            [{ kind: "statement", value: { kind: "conditional", condition: Condition, body: Body } }, ...RestSR]
+        > :
+        never :
     SR extends [
+            { kind: "statement-list" },
+            { kind: "antecedent-word" },
+            { kind: "statement-list" },
+            { kind: "conditional-header" },
+            ...any[]
+        ] ?
+        SR extends [
+            { kind: "statement-list", values: [infer FalseCase extends ParseTree] },
+            { kind: "antecedent-word" },
+            { kind: "statement-list", values: [infer TrueCase extends ParseTree] },
+            { kind: "conditional-header", condition: infer Condition extends ParseTree },
+            ...infer RestSR extends ParseTree[],
+        ] ? Parse<
+            Tokens,
+            [{ kind: "statement", value: { kind: "antecedent", condition: Condition, trueCase: TrueCase, falseCase: FalseCase }}, ...RestSR]
+        > :
+        never :
+    SR extends [
+            { kind: "statement" },
+            ...any[]
+        ] ?
+        SR extends [
             { kind: "statement", value: infer Exp extends ParseTree },
             ...infer RestSR extends ParseTree[]
         ] ? Parse<
             Tokens,
             [{ kind: "statement-list", values: [Exp] }, ...RestSR]
         > :
+        never :
     [Tokens, SR] extends [
             [
                 // Negative lookahead against `=`
@@ -389,13 +506,18 @@ type Parse<Tokens extends Tok[], SR extends ParseTree[] = []> =
                 ...any[]
             ],
             [
-                infer Tok extends { kind: "token", value: string },
-                ...infer RestSR extends ParseTree[]
+                { kind: "token" },
+                ...any[]
             ]
+        ] ?
+        SR extends [
+            infer Tok extends { kind: "token", value: string },
+            ...infer RestSR extends ParseTree[]
         ] ? Parse<
             Tokens,
             [{ kind: "expression", value: Tok }, ...RestSR]
         > :
+        never :
     // Then, shift in any new tokens
     Tokens extends [
             [infer Op extends keyof BinOps, "binop"],
@@ -767,7 +889,7 @@ const polynomial = <X extends number, Y extends number>(x: X, y: Y): Eval<`
             return 0;
         }
 
-        return 3*x*x + 2*x*y + 4*y;
+        return 4*x*x + 2*x*y + 4*y;
 
     }
 `, [X, Y]> => {
@@ -780,4 +902,3 @@ const polynomial = <X extends number, Y extends number>(x: X, y: Y): Eval<`
 
 const firstResult = polynomial(5, 10);
 const secondResult  = polynomial(10, 0);
-
