@@ -1,100 +1,6 @@
-import type { BigAdd, BigMult, NumIsGreater, NumIsGreaterEq, NumIsLess, NumIsLessEq } from "./math";
+import { BinOps, LexTokenValues, Tok } from "./tokens";
 
-/* Compiler stuffs */
-
-type Keywords = {
-    "return": "ret",
-    "let": "declare",
-    "const": "declare",
-    "var": "declare",
-    "if": "conditional",
-    "else": "antecedent",
-}
-
-type BinOps = {
-    "+": "binop",
-    "-": "binop",
-    "*": "binop",
-    "/": "binop",
-    "==": "binop"
-    "===": "binop",
-    ">": "binop",
-    "<": "binop",
-    ">=": "binop",
-    "<=": "binop",
-    "||": "binop",
-    "&&": "binop",
-}
-
-type Symbols = {
-    "(": "open-paren",
-    ")": "close-paren",
-    "{": "open-brace",
-    "}": "close-brace",
-    ",": "comma",
-    ";": "semicolon",
-    "=>": "arrow",
-    "=": "assignment",
-}
-
-type Values = {
-    [K: `${number}`]: "digit",
-    [K: `"${string}"`]: "string",
-    [K: `'${string}'`]: "string",
-    "true": "bool",
-    "false": "bool",
-}
-
-
-type Whitespace = {
-    " ": "space",
-    "\t": "space",
-    "\n": "space",
-}
-
-type LexTokenMap = (
-    & Keywords
-    & BinOps
-    & Symbols
-    & Whitespace
-    & Values
-);
-
-type LexTokenKeys = keyof LexTokenMap;
-type LexTokenValues = LexTokenMap[LexTokenKeys] | "token";
-type Tok = [string, LexTokenValues];
-
-type AddIfNotEmpty<Tokens extends string[], Tok extends string> = Tok extends "" ? Tokens : [...Tokens, Tok]
-
-type Tokenize<Text, CurrentToken extends string = "", Tokens extends string[] = []> =
-    Text extends "" ? AddIfNotEmpty<Tokens, CurrentToken> :
-    Text extends `${infer C extends string}${infer Rest}` ?
-        CurrentToken extends `${infer Start extends "\"" | "'"}${string}` ?
-            C extends `${Start}` ? Tokenize<Rest, "", AddIfNotEmpty<Tokens, `${CurrentToken}${C}`>> :
-            Tokenize<Rest, `${CurrentToken}${C}`, Tokens> :
-        C extends keyof Whitespace ? Tokenize<Rest, "", AddIfNotEmpty<Tokens, CurrentToken>> :
-        C extends `${keyof BinOps | keyof Symbols}${string}` ?
-            MaximallyTokenizeOperator<C, Rest> extends [infer NewToken extends string, infer NewRest] ?
-                Tokenize<NewRest, "", AddIfNotEmpty<AddIfNotEmpty<Tokens, CurrentToken>, NewToken>> :
-                never :
-        Tokenize<Rest, `${CurrentToken}${C}`, Tokens> :
-    never;
-
-type MaximallyTokenizeOperator<C extends string, Rest extends string> =
-    Rest extends `${infer C2 extends string}${infer NewRest}` ?
-        `${C}${C2}` extends `${keyof BinOps | keyof Symbols}` ? MaximallyTokenizeOperator<`${C}${C2}`, NewRest> :
-        [C, Rest] :
-    [C, Rest];
-
-type Lex<Tokens extends string[], Acc extends Tok[] = []> =
-    Tokens extends [] ? Acc :
-    Tokens extends [infer Head, ...infer Tail extends string[]] ?
-        Head extends (infer Key extends LexTokenKeys) ? Lex<Tail, [...Acc, [Head, LexTokenMap[Key]]]> :
-        Head extends string ? Lex<Tail, [...Acc, [Head, "token"]]> :
-        never :
-    never;
-
-type ParseTree =
+export type ParseTree =
     | { kind: "expression", value: ParseTree }
     | { kind: "number-literal", value: number }
     | { kind: "string-literal", value: string }
@@ -148,7 +54,7 @@ type ShouldShiftNewOp<Existing extends keyof BinOps, New extends keyof BinOps> =
         OperatorPrecedences[New] extends OperatorPrecedences[Existing] ? false : true :
         false;
 
-type Parse<Tokens extends Tok[], SR extends ParseTree[] = []> =
+export type Parse<Tokens extends Tok[], SR extends ParseTree[] = []> =
     // Start by doing fairly innocuous reductions
     SR extends [
             { kind: "semicolon" },
@@ -521,524 +427,209 @@ type Parse<Tokens extends Tok[], SR extends ParseTree[] = []> =
         never :
     // Then, shift in any new tokens
     Tokens extends [
+            [string, "binop"],
+            ...any[]
+        ] ?
+        Tokens extends [
             [infer Op extends keyof BinOps, "binop"],
             ...infer RestTok extends Tok[],
         ] ? Parse<
             RestTok,
             [{ kind: "binop-word", value: Op }, ...SR]
         > :
+        never :
     Tokens extends [
+            [string, "digit"],
+            ...any[]
+        ] ?
+        Tokens extends [
             [`${infer Num extends number}`, "digit"],
             ...infer RestTok extends Tok[],
         ] ? Parse<
             RestTok,
             [{ kind: "expression", value: { kind: "number-literal", value: Num } }, ...SR]
         > :
+        never :
     Tokens extends [
+            [string, "bool"],
+            ...any[]
+        ] ?
+        Tokens extends [
             [`${infer Bool extends boolean}`, "bool"],
             ...infer RestTok extends Tok[],
         ] ? Parse<
             RestTok,
             [{ kind: "expression", value: { kind: "bool-literal", value: Bool } }, ...SR]
         > :
+        never :
     Tokens extends [
+            [string, "semicolon"],
+            ...any[],
+        ] ?
+        Tokens extends [
             [string, "semicolon"],
             ...infer RestTok extends Tok[],
         ] ? Parse<
             RestTok,
             [{ kind: "semicolon"}, ...SR]
         > :
+        never :
     Tokens extends [
+            [string, "token"],
+            ...any[]
+        ] ?
+        Tokens extends [
             [infer Name extends string, "token"],
             ...infer RestTok extends Tok[],
         ] ? Parse<
             RestTok,
             [{ kind: "token", value: Name }, ...SR]
         > :
+        never :
     Tokens extends [
+            [string, "string"],
+            ...any[]
+        ] ?
+        Tokens extends [
             [`"${infer Str extends string}"` | `'${infer Str extends string}'`, "string"],
             ...infer RestTok extends Tok[],
         ] ? Parse<
             RestTok,
             [{ kind: "expression", value: { kind: "string-literal", value: Str } }, ...SR]
         > :
+        never :
     Tokens extends [
+            [string, "assignment"],
+            ...any[],
+        ] ?
+        Tokens extends [
             [string, "assignment"],
             ...infer RestTok extends Tok[],
         ] ? Parse<
             RestTok,
             [{ kind: "assignment-word"}, ...SR]
         > :
+        never :
     Tokens extends [
+            [string, "declare"],
+            ...any[],
+        ] ?
+        Tokens extends [
             [string, "declare"],
             ...infer RestTok extends Tok[],
         ] ? Parse<
             RestTok,
             [{ kind: "declaration-word"}, ...SR]
         > :
+        never :
     Tokens extends [
+            [string, "open-brace"],
+            ...any[],
+        ] ?
+        Tokens extends [
             [string, "open-brace"],
             ...infer RestTok extends Tok[],
         ] ? Parse<
             RestTok,
             [{ kind: "open-brace" }, ...SR]
         > :
+        never :
     Tokens extends [
+            [string, "close-brace"],
+            ...any[],
+        ] ?
+        Tokens extends [
             [string, "close-brace"],
             ...infer RestTok extends Tok[],
         ] ? Parse<
             RestTok,
             [{ kind: "close-brace" }, ...SR]
         > :
+        never :
     Tokens extends [
+            [string, "open-paren"],
+            ...any[],
+        ] ?
+        Tokens extends [
             [string, "open-paren"],
             ...infer RestTok extends Tok[],
         ] ? Parse<
             RestTok,
             [{ kind: "open-paren" }, ...SR]
         > :
+        never :
     Tokens extends [
+            [string, "close-paren"],
+            ...any[],
+        ] ?
+        Tokens extends [
             [string, "close-paren"],
             ...infer RestTok extends Tok[],
         ] ? Parse<
             RestTok,
             [{ kind: "close-paren" }, ...SR]
         > :
+        never :
     Tokens extends [
+            [string, "ret"],
+            ...any[],
+        ] ?
+        Tokens extends [
             [string, "ret"],
             ...infer RestTok extends Tok[],
         ] ? Parse<
             RestTok,
             [{ kind: "return-word" }, ...SR]
         > :
+        never :
     Tokens extends [
+            [string, "comma"],
+            ...any[],
+        ] ?
+        Tokens extends [
             [string, "comma"],
             ...infer RestTok extends Tok[],
         ] ? Parse<
             RestTok,
             [{ kind: "comma" }, ...SR]
         > :
+        never :
     Tokens extends [
+            [string, "arrow"],
+            ...any[],
+        ] ?
+        Tokens extends [
             [string, "arrow"],
             ...infer RestTok extends Tok[],
         ] ? Parse<
             RestTok,
             [{ kind: "arrow" }, ...SR]
         > :
+        never :
     Tokens extends [
+            [string, "conditional"],
+            ...any[],
+        ] ?
+        Tokens extends [
             [string, "conditional"],
             ...infer RestTok extends Tok[]
         ] ? Parse<
             RestTok,
             [{ kind: "conditional-word" }, ...SR]
         > :
+        never :
     Tokens extends [
+            [string, "antecedent"],
+            ...any[],
+        ] ?
+        Tokens extends [
             [string, "antecedent"],
             ...infer RestTok extends Tok[]
         ] ? Parse<
             RestTok,
             [{ kind: "antecedent-word" }, ...SR]
         > :
+        never :
     [Tokens, SR] extends [[], [infer Res]] ? { kind: "success", program: Res } :
     { kind: "parse-error", tokens: Tokens, stack: SR }
 
-
-
-type Value =
-    | { kind: "number", value: number }
-    | { kind: "string", value: string }
-    | { kind: "bool", value: boolean }
-    | { kind: "undefined", value: undefined }
-    | { kind: "fn", args: string[], body: ParseTree }
-
-type Context = {
-    variables: { [key: string]: Value },
-    retVal: Value
-    parent?: Context
-    shortCircuited: boolean,
-}
-
-type FindInContext<Tok extends string, C extends Context> =
-    C["variables"][Tok] extends infer V extends Value ? V :
-    C["parent"] extends infer CP extends Context ?
-    FindInContext<Tok, CP> :
-    { kind: "undefined", value: undefined }
-
-type TryAdd<Left extends Value, Right extends Value> =
-    [Left, Right] extends [
-        { kind: "number", value: infer LeftNum extends number },
-        { kind: "number", value: infer RightNum extends number },
-    ] ? { kind: "number", value: BigAdd<LeftNum, RightNum> } :
-    [Left, Right] extends [
-        { value: infer Left extends number | string | undefined | boolean },
-        { value: infer Right extends number | string | undefined | boolean },
-    ] ? { kind: "string", value: `${Left}${Right}` } :
-    { kind: "undefined", value: undefined };
-
-type TryMult<Left extends Value, Right extends Value> =
-    [Left, Right] extends [
-        { kind: "number", value: infer LeftNum extends number },
-        { kind: "number", value: infer RightNum extends number },
-    ] ? { kind: "number", value: BigMult<LeftNum, RightNum> } :
-    { kind: "undefined", value: undefined }
-
-type TryEq<Left extends Value, Right extends Value> =
-    [Left, Right] extends [Right, Left] ? { kind: "bool", value: true } :
-    { kind: "bool", value: false };
-
-type TryOr<Left extends ParseTree, Right extends ParseTree, C extends Context, _Capture extends Value = ExecuteExpressionMasked<Left, C>> =
-    IsTruthy<_Capture> extends true ? _Capture : ExecuteExpressionMasked<Right, C>;
-
-type TryAnd<Left extends ParseTree, Right extends ParseTree, C extends Context, _Capture extends Value = ExecuteExpressionMasked<Left, C>> =
-    IsTruthy<_Capture> extends true ? ExecuteExpressionMasked<Right, C> : _Capture;
-
-type TryComparison<Left extends Value, Right extends Value, Op extends string> =
-    [Left, Right] extends [
-        { kind: "number", value: infer LeftNum extends number },
-        { kind: "number", value: infer RightNum extends number },
-    ] ?
-        Op extends ">"  ? { kind: "bool", value: NumIsGreater<LeftNum, RightNum> } :
-        Op extends ">=" ? { kind: "bool", value: NumIsGreaterEq<LeftNum, RightNum> } :
-        Op extends "<"  ? { kind: "bool", value: NumIsLess<LeftNum, RightNum> } :
-        Op extends "<=" ? { kind: "bool", value: NumIsLessEq<LeftNum, RightNum> } :
-        { kind: "undefined", value: undefined } :
-    { kind: "undefined", value: undefined };
-
-type GetArgs<Args extends { kind: "token", value: string }[], Acc extends string[] = []> =
-    Args extends [
-        { kind: "token", value: infer Arg extends string },
-        ...infer Rest extends { kind: "token", value: string }[]
-    ] ? GetArgs<Rest, [...Acc, Arg]> :
-    Acc
-
-type BuildContext<Args extends string[], Values extends Value[], Acc extends { [K: string]: Value } = {}> =
-    [Args, Values] extends [
-        [
-            infer Arg extends string,
-            ...infer RestArgs extends string[],
-        ],
-        [
-            infer Val extends Value,
-            ...infer RestVals extends Value[],
-        ]
-    ] ? BuildContext<RestArgs, RestVals, Acc & { [K in Arg]: Val }> :
-    Acc
-
-type TryCall<Val extends Value, CallArgs extends Value[], C extends Context> =
-    Val extends { kind: "fn", args: infer Args extends string[], body: { kind: "block", values: infer Body extends ParseTree[] } } ?
-    ExecuteStatementsMasked<Body, { variables: BuildContext<Args, CallArgs>, parent: C, retVal: { kind: "undefined", value: undefined }, shortCircuited: false }>["retVal"] :
-    { kind: "undefined", value: undefined }
-
-type ExecuteAll<Exps extends ParseTree[], C extends Context, Acc extends Value[] = []> =
-    Exps extends [
-        infer Exp extends ParseTree,
-        ...infer Rest extends ParseTree[],
-    ] ? ExecuteAll<Rest, C, [...Acc, ExecuteExpressionMasked<Exp, C>]> :
-    Acc
-
-type ExecuteExpressionMasked<Exp extends ParseTree, C extends Context> =
-    ExecuteExpression<Exp, C> extends infer V extends Value ? V : never;
-
-type IsTruthy<Val extends Value> =
-    Val extends (
-        | { kind: "undefined" }
-        | { kind: "string", value: "" }
-        | { kind: "bool", value: false }
-        | { kind: "number", value: 0 }
-    ) ? false :
-    true;
-
-type PopBlock<C extends Context> =
-    {
-        variables: NonNullable<C["parent"]>["variables"],
-        parent: NonNullable<C["parent"]>["parent"],
-        retVal: C["retVal"],
-        shortCircuited: C["shortCircuited"],
-    }
-
-type PostBlockExecution<C extends Context, Stmt extends ParseTree[], NewContext extends Context = PopBlock<C>> =
-    NewContext extends { shortCircuited: true } ? NewContext :
-    ExecuteStatementsMasked<Stmt, C>
-
-type ExecuteExpression<Exp extends ParseTree, C extends Context = { variables: {}, parent: undefined, retVal: { kind: "undefined", value: undefined }, shortCircuited: false }> =
-    Exp extends { kind: "number-literal", value: infer Val extends number } ?
-        { kind: "number", value: Val } :
-    Exp extends { kind: "string-literal", value: infer Val extends string } ?
-        { kind: "string", value: Val } :
-    Exp extends { kind: "bool-literal", value: infer Val extends boolean } ?
-        { kind: "bool", value: Val } :
-    Exp extends { kind: "binop", op: "+" } ?
-        Exp extends { kind: "binop", op: "+", left: infer Left extends ParseTree, right: infer Right extends ParseTree } ?
-            TryAdd<ExecuteExpressionMasked<Left, C>, ExecuteExpressionMasked<Right, C>> :
-        never :
-    Exp extends { kind: "binop", op: "*" } ?
-        Exp extends { kind: "binop", op: "*", left: infer Left extends ParseTree, right: infer Right extends ParseTree } ?
-            TryMult<ExecuteExpressionMasked<Left, C>, ExecuteExpressionMasked<Right, C>> :
-        never :
-    Exp extends { kind: "binop", op: "===" } ?
-        Exp extends { kind: "binop", op: "===", left: infer Left extends ParseTree, right: infer Right extends ParseTree } ?
-            TryEq<ExecuteExpressionMasked<Left, C>, ExecuteExpressionMasked<Right, C>> :
-        never :
-    Exp extends { kind: "binop", op: "<" | "<=" | ">" | ">=" } ?
-        Exp extends { kind: "binop", op: infer Op extends "<" | "<=" | ">" | ">=", left: infer Left extends ParseTree, right: infer Right extends ParseTree } ?
-            TryComparison<ExecuteExpressionMasked<Left, C>, ExecuteExpressionMasked<Right, C>, Op> :
-        never :
-    Exp extends { kind: "binop", op: "||" } ?
-        Exp extends { kind: "binop", op: "||", left: infer Left extends ParseTree, right: infer Right extends ParseTree } ?
-            TryOr<Left, Right, C> :
-        never :
-    Exp extends { kind: "binop", op: "&&" } ?
-        Exp extends { kind: "binop", op: "&&", left: infer Left extends ParseTree, right: infer Right extends ParseTree } ?
-            TryAnd<Left, Right, C> :
-        never :
-    Exp extends { kind: "arrow-fn" } ?
-        Exp extends { kind: "arrow-fn", args: infer Args extends { kind: "token", value: string }[], body: infer Body extends ParseTree } ?
-            { kind: "fn", args: GetArgs<Args>, body: Body } :
-        never :
-    Exp extends { kind: "call" } ?
-        Exp extends { kind: "call", fn: infer Fn extends ParseTree, args: infer Args extends ParseTree[] } ?
-            TryCall<ExecuteExpressionMasked<Fn, C>, ExecuteAll<Args, C>, C> :
-        never :
-    Exp extends { kind: "token" } ?
-        Exp extends { kind: "token", value: infer Tok extends string } ?
-            FindInContext<Tok, C> :
-        never :
-    { kind: "undefined", value: undefined };
-
-type ExecuteStatementsMasked<Stmt extends ParseTree[], C extends Context> =
-    ExecuteStatements<Stmt, C> extends infer NewCtx extends Context ? NewCtx :
-    never;
-
-type ExecuteStatements<
-    Stmt extends ParseTree[],
-    C extends Context = {
-        variables: {},
-        parent: undefined,
-        retVal: { kind: "undefined", value: undefined },
-        shortCircuited: false,
-    }
-> =
-    Stmt extends [
-            { kind: "declaration" },
-            ...any[],
-        ] ?
-        Stmt extends [
-            { kind: "declaration", name: infer Name extends string, value: infer Value extends ParseTree },
-            ...infer Rest extends ParseTree[]
-        ] ? ExecuteStatementsMasked<
-            Rest,
-            {
-                variables: C["variables"] & { [K in Name]: ExecuteExpressionMasked<Value, C> },
-                parent: C["parent"],
-                retVal: C["retVal"],
-                shortCircuited: C["shortCircuited"],
-            }
-        > :
-        never :
-    Stmt extends [
-            { kind: "conditional" },
-            ...any[]
-        ] ?
-        Stmt extends [
-            {
-                kind: "conditional",
-                condition: infer Condition extends ParseTree,
-                body: infer Body extends ParseTree
-            },
-            ...infer Rest extends ParseTree[]
-        ] ?
-            ExecuteStatementsMasked<Rest, C> :
-            // IsTruthy<ExecuteExpressionMasked<Condition, C>> extends true ?
-            //     ExecuteStatementsMasked<[Body, ...Rest], C> :
-            //     ExecuteStatementsMasked<Rest, C> :
-        never :
-    Stmt extends [
-            { kind: "antecedent" },
-            ...any[]
-        ] ?
-        Stmt extends [
-            {
-                kind: "antecedent",
-                condition: infer Condition extends ParseTree,
-                trueCase: infer TrueCase extends ParseTree,
-                falseCase: infer FalseCase extends ParseTree,
-            },
-            ...infer Rest extends ParseTree[]
-        ] ?
-            IsTruthy<ExecuteExpressionMasked<Condition, C>> extends true ?
-                ExecuteStatementsMasked<[TrueCase, ...Rest], C> :
-                ExecuteStatementsMasked<[FalseCase, ...Rest], C> :
-        never :
-    Stmt extends [
-            { kind: "block" },
-            ...any[]
-        ] ?
-        Stmt extends [
-            {
-                kind: "block",
-                values: infer Values extends ParseTree[],
-            },
-            ...infer Rest extends ParseTree[]
-        ] ?
-            PostBlockExecution<
-                ExecuteStatementsMasked<
-                    Values,
-                    {
-                        variables: {},
-                        parent: C,
-                        retVal: { kind: "undefined", value: undefined },
-                        shortCircuited: false,
-                    }
-                >,
-                Rest
-            > :
-        never :
-    Stmt extends [
-            { kind: "return" },
-            ...any[],
-        ] ?
-        Stmt extends [
-            { kind: "return", value: infer Val extends ParseTree },
-            ...infer _Rest extends ParseTree[]
-        ] ? {
-            variables: C["variables"],
-            parent: C["parent"],
-            retVal: ExecuteExpressionMasked<Val, C>
-            shortCircuited: true,
-        } :
-        Stmt extends [any, ...infer Rest extends ParseTree[]] ? ExecuteStatementsMasked<Rest, C> :
-        never :
-    Stmt extends [
-            any,
-            ...any[],
-        ] ?
-        Stmt extends [
-            any,
-            ...infer Rest extends ParseTree[],
-        ] ?
-            ExecuteStatementsMasked<Rest, C> :
-        never :
-    C
-
-type CallForResult<S extends string> =
-    Parse<Lex<Tokenize<S>>> extends { program: { values: infer Values extends ParseTree[] } } ?
-    ExecuteStatements<Values>["retVal"] :
-    "Parse Error!";
-
-type Execute<S> =
-    S extends { program: { values: infer Values extends ParseTree[] } } ?
-        ExecuteStatements<Values> :
-        "Parse Error!";
-
-
-type TsToValue<Args extends any[], Acc extends Value[] = []> =
-    Args extends [
-        infer Head,
-        ...infer Rest
-    ] ?
-        Head extends number ? TsToValue<Rest, [...Acc, { kind: "number", value: Head }]> :
-        Head extends string ? TsToValue<Rest, [...Acc, { kind: "string", value: Head }]> :
-        Head extends boolean ? TsToValue<Rest, [...Acc, { kind: "bool", value: Head }]> :
-        TsToValue<Rest, [...Acc, { kind: "undefined", value: undefined}]> :
-    Acc
-
-type ValueToTs<Val extends Value> =
-    Val extends { kind: "number", value: infer TsVal } ? TsVal :
-    Val extends { kind: "string", value: infer TsVal } ? TsVal :
-    Val extends { kind: "bool", value: infer TsVal } ? TsVal :
-    Val extends { kind: "undefined", value: infer TsVal } ? TsVal :
-    undefined;
-
-type Eval<S extends string, Args extends any[], C extends Context = { variables: {}, parent: undefined, retVal: { kind: "undefined", value: undefined }, shortCircuited: false } > =
-    Parse<Lex<Tokenize<S>>> extends {
-        program: {
-            kind: "expression",
-            value: infer Fn extends {
-                kind: "arrow-fn",
-                args: ParseTree[],
-                body: ParseTree,
-            }
-        }
-    } ? ValueToTs<TryCall<ExecuteExpressionMasked<Fn, C>, TsToValue<Args>, C>> :
-    "Parse Error!"
-
-// const polynomial = <X extends number, Y extends number>(x: X, y: Y): Eval<`
-//     (x, y) => {
-//         if (y < 0 || x < 0) {
-//             return 0;
-//         }
-
-//         return 3*x*x + 2*x*y + 4*y;
-//     }
-// `, [X, Y]> => {
-//     if (y === 0) {
-//         return 0 as any;
-//     }
-
-//     return (3*x*x + 2*x*y + 4*y) as any;
-// }
-
-// const firstResult = polynomial(5, 10);
-// const secondResult  = polynomial(10, 7);
-
-// const summation = <N extends number>(limit: N): Eval<`
-//     (limit) => {
-//         let rec = (val) => {
-//             if (val > limit) {
-//                 return 0;
-//             }
-
-//             return val + rec(val + 1);
-//         };
-
-//         return rec(0);
-//     }
-// `, [N]> => {
-//     let rec = (val: number) => {
-//         if (val > limit) {
-//             return 0;
-//         }
-
-//         return val + rec(val + 1);
-//     };
-
-//     return rec(0) as any;
-// }
-
-
-
-// const result = summation(3);
-
-// type Wat = Parse<Lex<Tokenize<`
-//     () => {
-//         let fn = () => {
-//             return 1;
-//         };
-
-//         return fn();
-//     }
-// `>>>;
-
-type PerfTest = Parse<Lex<Tokenize<`
-    () => {
-        let fn = (x) => {
-            if (1) { }
-
-            let bar = false;
-
-            return x;
-        };
-
-        return fn(1) + fn(1 + 1) = fn(1 + 1) + fn(1 + 1) + fn(1 + 1);
-    }
-`>>>
-
-// type PerfTest = Eval<`
-//     () => {
-//         let fn = (x) => {
-//             return x;
-//         };
-
-//         return fn(1) + fn(1 + 1) + fn(1 + 2) + fn(1 + 10);
-//     }
-// `, []>
