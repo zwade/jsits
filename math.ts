@@ -74,12 +74,18 @@ type AbsNumIsGreaterEq<A extends number, B extends number> =
 
 type IsNegative<A extends number> = `${A}` extends `-${number}` ? true : false;
 
-export type NumIsGreaterEq<A extends number, B extends number> =
+type NumIsGreaterEq_<A extends number, B extends number> =
     IsNegative<A> extends true ?
         IsNegative<B> extends true ? AbsNumIsGreaterEq<Negate<B>, Negate<A>> :
         false :
     IsNegative<B> extends true ? true :
     AbsNumIsGreaterEq<A, B>;
+
+// Force distribution
+export type NumIsGreaterEq<A extends number, B extends number> =
+    A extends number ? B extends number ? NumIsGreaterEq_<A, B> :
+    never :
+    never;
 
 export type NumIsGreater<A extends number, B extends number> =
     [A, B] extends [B, A] ? false :

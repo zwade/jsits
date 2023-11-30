@@ -21,10 +21,9 @@ const factorial = <N extends number>(limit: N): Eval<`
         return val * rec(val + 1);
     };
 
-    return rec(0) as any;
+    return rec(1) as any;
 }
 
 // Can compute up to 9, but TSServer complains after 6
 
 const resultGood: 720 = factorial(6);
-// const resultBad:  719 = factorial(6);

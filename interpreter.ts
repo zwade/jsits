@@ -21,6 +21,16 @@ type FindInContext<Tok extends string, C extends Context> =
     FindInContext<Tok, CP> :
     { kind: "undefined", value: undefined }
 
+type UpdateContext<Tok extends string, C extends Context, Val extends Value> =
+    C["variables"] extends { [K in Tok]: any } ?
+        Omit<C, "variables"> & {
+            variables: Omit<C["variables"], Tok> & {
+                [K in Tok]: Val
+            }
+        } :
+    C["parent"] extends Context ? C & { parent: UpdateContext<Tok, C["parent"], Val> } :
+    C;
+
 type TryAdd<Left extends Value, Right extends Value> =
     [Left, Right] extends [
         { kind: "number", value: infer LeftNum extends number },
@@ -83,7 +93,15 @@ type BuildContext<Args extends string[], Values extends Value[], Acc extends { [
 
 export type TryCall<Val extends Value, CallArgs extends Value[], C extends Context> =
     Val extends { kind: "fn", args: infer Args extends string[], body: { kind: "block", values: infer Body extends ParseTree[] } } ?
-    ExecuteStatementsMasked<Body, { variables: BuildContext<Args, CallArgs>, parent: C, retVal: { kind: "undefined", value: undefined }, shortCircuited: false }>["retVal"] :
+    ExecuteStatementsMasked<
+        Body,
+        {
+            variables: BuildContext<Args, CallArgs>,
+            parent: C,
+            retVal: { kind: "undefined", value: undefined },
+            shortCircuited: false
+        }
+    >["retVal"] :
     { kind: "undefined", value: undefined }
 
 type ExecuteAll<Exps extends ParseTree[], C extends Context, Acc extends Value[] = []> =
@@ -190,6 +208,18 @@ export type ExecuteStatements<
                 retVal: C["retVal"],
                 shortCircuited: C["shortCircuited"],
             }
+        > :
+        never :
+    Stmt extends [
+            { kind: "redeclaration" },
+            ...any[],
+        ] ?
+        Stmt extends [
+            { kind: "redeclaration", name: infer Name extends string, value: infer Value extends ParseTree },
+            ...infer Rest extends ParseTree[]
+        ] ? ExecuteStatementsMasked<
+            Rest,
+            UpdateContext<Name, C, ExecuteExpressionMasked<Value, C>>
         > :
         never :
     Stmt extends [

@@ -29,6 +29,7 @@ export type ParseTree =
     | { kind: "call", fn: ParseTree, args: ParseTree[] }
     | { kind: "binop", op: keyof BinOps, left: ParseTree, right: ParseTree }
     | { kind: "declaration", name: string, value: ParseTree }
+    | { kind: "redeclaration", name: string, value: ParseTree }
     | { kind: "statement", value: ParseTree }
     | { kind: "statement-list", values: ParseTree[] }
     | { kind: "block", values: ParseTree[] }
@@ -74,6 +75,24 @@ export type Parse<Tokens extends Tok[], SR extends ParseTree[] = []> =
         ] ? Parse<
             Tokens,
             [{ kind: "statement", value: { kind: "declaration", name: Name, value: Exp } }, ...Rest]
+        > :
+        never :
+    SR extends [
+            { kind: "semicolon" },
+            { kind: "expression" },
+            { kind: "assignment-word" },
+            { kind: "token" },
+            ...any[]
+        ] ?
+        SR extends [
+            { kind: "semicolon" },
+            { kind: "expression", value: infer Exp extends ParseTree },
+            { kind: "assignment-word" },
+            { kind: "token", value: infer Name extends string },
+            ...infer Rest extends ParseTree[]
+        ] ? Parse<
+            Tokens,
+            [{ kind: "statement", value: { kind: "redeclaration", name: Name, value: Exp  } }, ...Rest]
         > :
         never :
     // // Then, with fairly high priority manage the binop shift/reduce (so we can handle priority)
