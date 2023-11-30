@@ -13,7 +13,7 @@ const factorial = <N extends number>(limit: N): Eval<`
         return rec(1);
     }
 `, [N]> => {
-    let rec = (val: number) => {
+    let rec = (val: number): number => {
         if (val > limit) {
             return 0;
         }

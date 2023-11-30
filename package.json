@@ -1,0 +1,13 @@
+{
+  "name": "jsits",
+  "version": "1.0.0",
+  "description": "JavaScript in TypeScript!",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "repository": "git@github.com:zwade/jsits.git",
+  "author": "Zach Wade <zach@dttw.tech>",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.3.2"
+  }
+}
