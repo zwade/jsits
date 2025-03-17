@@ -1,7 +1,7 @@
 type Digit = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";
 type FromDigit<T extends string> = T extends `${infer X extends number}` ? X : never;
 
-type Reverse<T, A extends T[]> = A extends [infer Head, ...(infer Tail)] ? Tail extends T[] ? [...Reverse<T, Tail>, Head] : never : [];
+type Reverse<T, A extends T[]> = A extends [infer Head, ...(infer Tail extends T[])] ? [...Reverse<T, Tail>, Head] : [];
 type FromInt<I extends number, acc extends unknown[] = []> = acc["length"] extends I ? acc : FromInt<I, [...acc, null]>
 type ToInt<A extends unknown[]> = A["length"]
 

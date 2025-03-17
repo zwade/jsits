@@ -16,6 +16,6 @@ const polynomial = <X extends number, Y extends number>(x: X, y: Y): Eval<`
     return (3*x*x + 2*x*y + 4*y) as any;
 }
 
-const firstResult = polynomial(5, 10);
-const secondResult = polynomial(10, 7);
-const noResult = polynomial(10, -4);
+export const firstResult = polynomial(5, 10);
+export const secondResult = polynomial(10, 7);
+export const noResult = polynomial(10, -4);

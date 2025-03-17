@@ -32,9 +32,8 @@ export type Execute<S> =
         "Parse Error!";
 
 
-
-export type Eval<S extends string, Args extends any[], C extends Context = { variables: {}, parent: undefined, retVal: { kind: "undefined", value: undefined }, shortCircuited: false } > =
-    Parse<Lex<Tokenize<S>>> extends {
+export type Run<P, Args extends any[], C extends Context = { variables: {}, parent: undefined, retVal: { kind: "undefined", value: undefined }, shortCircuited: false } > =
+    P extends {
         program: {
             kind: "expression",
             value: infer Fn extends {
@@ -44,4 +43,7 @@ export type Eval<S extends string, Args extends any[], C extends Context = { var
             }
         }
     } ? ValueToTs<TryCall<ExecuteExpressionMasked<Fn, C>, TsToValue<Args>, C>> :
-    "Parse Error!"
+    "Parse Error!";
+
+export type Eval<S extends string, Args extends any[]> =
+    Run<Parse<Lex<Tokenize<S>>>, Args>;

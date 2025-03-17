@@ -111,6 +111,9 @@ type ExecuteAll<Exps extends ParseTree[], C extends Context, Acc extends Value[]
     ] ? ExecuteAll<Rest, C, [...Acc, ExecuteExpressionMasked<Exp, C>]> :
     Acc
 
+type ExecuteAllMasked<Exps extends ParseTree[], C extends Context> =
+    ExecuteAll<Exps, C> extends infer Vs extends Value[] ? Vs : never;
+
 export type ExecuteExpressionMasked<Exp extends ParseTree, C extends Context> =
     ExecuteExpression<Exp, C> extends infer V extends Value ? V : never;
 
@@ -172,7 +175,7 @@ type ExecuteExpression<Exp extends ParseTree, C extends Context = { variables: {
         never :
     Exp extends { kind: "call" } ?
         Exp extends { kind: "call", fn: infer Fn extends ParseTree, args: infer Args extends ParseTree[] } ?
-            TryCall<ExecuteExpressionMasked<Fn, C>, ExecuteAll<Args, C>, C> :
+            TryCall<ExecuteExpressionMasked<Fn, C>, ExecuteAllMasked<Args, C>, C> :
         never :
     Exp extends { kind: "token" } ?
         Exp extends { kind: "token", value: infer Tok extends string } ?

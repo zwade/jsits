@@ -25,5 +25,6 @@ const factorial = <N extends number>(limit: N): Eval<`
 }
 
 // Can compute up to 9, but TSServer complains after 6
+// tsgo can go up to 21
 
-const resultGood: 720 = factorial(6);
+export const resultGood: 720 = factorial(6);

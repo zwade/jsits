@@ -4,7 +4,7 @@ import { Tokenize } from "../tokenizer";
 import { Lex } from "../lexer";
 
 
-type Expensive = Eval<`
+export type expensive = Eval<`
     (limit) => {
         let rec = (x) => {
             if (x > limit) {
@@ -16,4 +16,4 @@ type Expensive = Eval<`
 
         return rec(0);
     }
-`, [5]>
+`, [5]>;

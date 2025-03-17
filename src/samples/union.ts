@@ -1,6 +1,6 @@
 import { Eval } from "../utils";
 
-type PlusDistributes = Eval<`
+export type PlusDistributes = Eval<`
     (x, y) => {
         return x + y;
     }
@@ -9,7 +9,7 @@ type PlusDistributes = Eval<`
     3 | 4,
 ]>
 
-type TimesDistributes = Eval<`
+export type TimesDistributes = Eval<`
     (x, y) => {
         return x * y;
     }
@@ -18,7 +18,7 @@ type TimesDistributes = Eval<`
     3 | 4,
 ]>
 
-type Distribution = Eval<`
+export type Distribution = Eval<`
     (x) => {
         let test = (y) => {
             return 5 > y;
